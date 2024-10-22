@@ -3,6 +3,7 @@
 // Get form and expense list elements
 const form = document.getElementById('expense-form');
 const expensesList = document.getElementById('expenses');
+let editingExpense = null; // Variable to track which expense is being edited
 
 // Function to fetch current Bitcoin price in euros
 async function fetchBitcoinPrice() {
@@ -22,6 +23,9 @@ function loadExpenses() {
     expenses.forEach(expense => {
         addExpenseToList(expense);
     });
+
+    // Update the summary once expenses are loaded
+    updateSummary();
 }
 
 // Save expenses to local storage
@@ -34,6 +38,7 @@ function addExpenseToList(expense) {
     const listItem = document.createElement('li');
 
     listItem.innerHTML = `
+        <input type="text" class="expense-user" value="${expense.user}" disabled>
         <input type="text" class="expense-name" value="${expense.name}" disabled>
         <input type="number" class="expense-amount" value="${expense.amountEuros.toFixed(2)}" disabled>
         <select class="expense-category" disabled>
@@ -60,6 +65,7 @@ function addExpenseToList(expense) {
 // Function to enter edit mode for an expense
 function enterEditMode(listItem) {
     // Enable the input fields
+    listItem.querySelector('.expense-user').disabled = false;
     listItem.querySelector('.expense-name').disabled = false;
     listItem.querySelector('.expense-amount').disabled = false;
     listItem.querySelector('.expense-category').disabled = false;
@@ -72,11 +78,13 @@ function enterEditMode(listItem) {
 // Function to save edits for an expense
 function saveEdit(expense, listItem) {
     // Get updated values from input fields
+    const updatedUser = listItem.querySelector('.expense-user').value;
     const updatedName = listItem.querySelector('.expense-name').value;
     const updatedAmountEuros = parseFloat(listItem.querySelector('.expense-amount').value);
     const updatedCategory = listItem.querySelector('.expense-category').value;
 
     // Update expense object
+    expense.user = updatedUser;
     expense.name = updatedName;
     expense.amountEuros = updatedAmountEuros;
     expense.category = updatedCategory;
@@ -97,6 +105,7 @@ function saveEdit(expense, listItem) {
             saveExpenses(updatedExpenses);
 
             // Disable input fields again
+            listItem.querySelector('.expense-user').disabled = true;
             listItem.querySelector('.expense-name').disabled = true;
             listItem.querySelector('.expense-amount').disabled = true;
             listItem.querySelector('.expense-category').disabled = true;
@@ -104,6 +113,9 @@ function saveEdit(expense, listItem) {
             // Hide the save button and show the edit button
             listItem.querySelector('.edit-btn').style.display = 'inline';
             listItem.querySelector('.save-btn').style.display = 'none';
+
+            // Update the summary after saving changes
+            updateSummary();
         } else {
             alert('Could not fetch Bitcoin price. Please try again later.');
         }
@@ -117,8 +129,11 @@ function deleteExpense(expense, listItem) {
 
     // Remove the expense from local storage
     const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-    const updatedExpenses = expenses.filter(exp => !(exp.name === expense.name && exp.amountEuros === expense.amountEuros && exp.category === expense.category));
+    const updatedExpenses = expenses.filter(exp => !(exp.user === expense.user && exp.name === expense.name && exp.amountEuros === expense.amountEuros && exp.category === expense.category));
     saveExpenses(updatedExpenses);
+
+    // Update the summary after deleting an expense
+    updateSummary();
 }
 
 // Listen for form submission
@@ -134,6 +149,7 @@ form.addEventListener('submit', async function (e) {
     }
 
     // Get expense details from form inputs
+    const expenseUser = document.getElementById('expense-user').value;
     const expenseName = document.getElementById('expense-name').value;
     const expenseAmountEuros = parseFloat(document.getElementById('expense-amount').value);
     const expenseCategory = document.getElementById('expense-category').value;
@@ -143,6 +159,7 @@ form.addEventListener('submit', async function (e) {
 
     // Create expense object
     const expense = {
+        user: expenseUser,
         name: expenseName,
         amountEuros: expenseAmountEuros,
         amountSats: expenseAmountSats,
@@ -159,7 +176,43 @@ form.addEventListener('submit', async function (e) {
 
     // Clear the form inputs
     form.reset();
+
+    // Update the summary after adding an expense
+    updateSummary();
 });
 
 // Load expenses when the page loads
 loadExpenses();
+
+// Update the summary of who owes whom
+async function updateSummary() {
+    const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    let nunoPaidEuros = 0;
+    let claudiaPaidEuros = 0;
+    let nunoPaidSats = 0;
+    let claudiaPaidSats = 0;
+
+    expenses.forEach(expense => {
+        if (expense.user === 'Nuno') {
+            nunoPaidEuros += expense.amountEuros;
+            nunoPaidSats += expense.amountSats;
+        } else if (expense.user === 'Claudia') {
+            claudiaPaidEuros += expense.amountEuros;
+            claudiaPaidSats += expense.amountSats;
+        }
+    });
+
+    const nunoOwesClaudiaEuros = Math.max(0, claudiaPaidEuros - nunoPaidEuros);
+    const claudiaOwesNunoEuros = Math.max(0, nunoPaidEuros - claudiaPaidEuros);
+
+    const nunoOwesClaudiaSats = Math.max(0, claudiaPaidSats - nunoPaidSats);
+    const claudiaOwesNunoSats = Math.max(0, nunoPaidSats - claudiaPaidSats);
+
+    // Display the summary
+    const summaryElement = document.getElementById('summary');
+    summaryElement.innerHTML = `
+        <h2>Summary</h2>
+        <p>Nuno owes Claudia: €${nunoOwesClaudiaEuros.toFixed(2)} (${nunoOwesClaudiaSats.toFixed(0)} sats)</p>
+        <p>Claudia owes Nuno: €${claudiaOwesNunoEuros.toFixed(2)} (${claudiaOwesNunoSats.toFixed(0)} sats)</p>
+    `;
+}
