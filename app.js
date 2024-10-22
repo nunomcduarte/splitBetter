@@ -43,6 +43,7 @@ function addExpenseToList(expense) {
         <input type="text" class="expense-name" value="${expense.name}" disabled>
         <input type="number" class="expense-amount" value="${expense.amountEuros.toFixed(2)}" disabled>
         <select class="expense-category" disabled>
+            <option value="" ${expense.category === '' ? 'selected' : ''}>None</option>
             <option value="Food" ${expense.category === 'Food' ? 'selected' : ''}>Food</option>
             <option value="Travel" ${expense.category === 'Travel' ? 'selected' : ''}>Travel</option>
             <option value="Rent" ${expense.category === 'Rent' ? 'selected' : ''}>Rent</option>
@@ -51,6 +52,10 @@ function addExpenseToList(expense) {
         </select>
         <input type="date" class="expense-date" value="${new Date(expense.date).toISOString().split('T')[0]}" disabled>
         <span>(${expense.amountSats.toFixed(0)} sats)</span>
+        <select class="split-type" disabled>
+            <option value="50-50" ${expense.splitType === '50-50' ? 'selected' : ''}>Split 50/50</option>
+            <option value="full" ${expense.splitType === 'full' ? 'selected' : ''}>Paid by ${expense.user}</option>
+        </select>
         <button class="edit-btn">Edit</button>
         <button class="save-btn" style="display: none;">Save</button>
         <button class="delete-btn">Delete</button>
@@ -72,6 +77,7 @@ function enterEditMode(listItem) {
     listItem.querySelector('.expense-amount').disabled = false;
     listItem.querySelector('.expense-category').disabled = false;
     listItem.querySelector('.expense-date').disabled = false;
+    listItem.querySelector('.split-type').disabled = false;
 
     // Hide the edit button and show the save button
     listItem.querySelector('.edit-btn').style.display = 'none';
@@ -86,6 +92,7 @@ function saveEdit(expense, listItem) {
     const updatedAmountEuros = parseFloat(listItem.querySelector('.expense-amount').value);
     const updatedCategory = listItem.querySelector('.expense-category').value;
     const updatedDate = listItem.querySelector('.expense-date').value;
+    const updatedSplitType = listItem.querySelector('.split-type').value;
 
     // Update expense object
     expense.user = updatedUser;
@@ -93,6 +100,7 @@ function saveEdit(expense, listItem) {
     expense.amountEuros = updatedAmountEuros;
     expense.category = updatedCategory;
     expense.date = updatedDate;
+    expense.splitType = updatedSplitType;
 
     // Recalculate the amount in satoshis
     fetchBitcoinPrice().then((bitcoinPriceInEuros) => {
@@ -115,6 +123,7 @@ function saveEdit(expense, listItem) {
             listItem.querySelector('.expense-amount').disabled = true;
             listItem.querySelector('.expense-category').disabled = true;
             listItem.querySelector('.expense-date').disabled = true;
+            listItem.querySelector('.split-type').disabled = true;
 
             // Hide the save button and show the edit button
             listItem.querySelector('.edit-btn').style.display = 'inline';
@@ -161,6 +170,7 @@ form.addEventListener('submit', async function (e) {
     const expenseName = document.getElementById('expense-name').value;
     const expenseAmountEuros = parseFloat(document.getElementById('expense-amount').value);
     const expenseCategory = document.getElementById('expense-category').value;
+    const expenseSplitType = document.getElementById('expense-split-type').value;
 
     // Calculate equivalent amount in satoshis
     const expenseAmountSats = (expenseAmountEuros / bitcoinPriceInEuros) * 100000000;
@@ -172,7 +182,8 @@ form.addEventListener('submit', async function (e) {
         amountEuros: expenseAmountEuros,
         amountSats: expenseAmountSats,
         category: expenseCategory,
-        date: new Date().toISOString().split('T')[0] // Date stamp in ISO format (YYYY-MM-DD)
+        date: new Date().toISOString().split('T')[0], // Date stamp in ISO format (YYYY-MM-DD)
+        splitType: expenseSplitType
     };
 
     // Add the expense to the list in the DOM
@@ -203,20 +214,38 @@ async function updateSummary() {
     let claudiaPaidSats = 0;
 
     expenses.forEach(expense => {
-        if (expense.user === 'Nuno') {
-            nunoPaidEuros += expense.amountEuros;
-            nunoPaidSats += expense.amountSats;
-        } else if (expense.user === 'Claudia') {
-            claudiaPaidEuros += expense.amountEuros;
-            claudiaPaidSats += expense.amountSats;
+        if (expense.splitType === '50-50') {
+            if (expense.user === 'Nuno') {
+                nunoPaidEuros += expense.amountEuros / 2;
+                claudiaPaidEuros -= expense.amountEuros / 2;
+                nunoPaidSats += expense.amountSats / 2;
+                claudiaPaidSats -= expense.amountSats / 2;
+            } else if (expense.user === 'Claudia') {
+                claudiaPaidEuros += expense.amountEuros / 2;
+                nunoPaidEuros -= expense.amountEuros / 2;
+                claudiaPaidSats += expense.amountSats / 2;
+                nunoPaidSats -= expense.amountSats / 2;
+            }
+        } else if (expense.splitType === 'full') {
+            if (expense.user === 'Nuno') {
+                nunoPaidEuros += expense.amountEuros;
+                claudiaPaidEuros -= expense.amountEuros;
+                nunoPaidSats += expense.amountSats;
+                claudiaPaidSats -= expense.amountSats;
+            } else if (expense.user === 'Claudia') {
+                claudiaPaidEuros += expense.amountEuros;
+                nunoPaidEuros -= expense.amountEuros;
+                claudiaPaidSats += expense.amountSats;
+                nunoPaidSats -= expense.amountSats;
+            }
         }
     });
 
-    const nunoOwesClaudiaEuros = Math.max(0, claudiaPaidEuros - nunoPaidEuros);
-    const claudiaOwesNunoEuros = Math.max(0, nunoPaidEuros - claudiaPaidEuros);
+    const nunoOwesClaudiaEuros = Math.max(0, -claudiaPaidEuros);
+    const claudiaOwesNunoEuros = Math.max(0, -nunoPaidEuros);
 
-    const nunoOwesClaudiaSats = Math.max(0, claudiaPaidSats - nunoPaidSats);
-    const claudiaOwesNunoSats = Math.max(0, nunoPaidSats - claudiaPaidSats);
+    const nunoOwesClaudiaSats = Math.max(0, -claudiaPaidSats);
+    const claudiaOwesNunoSats = Math.max(0, -nunoPaidSats);
 
     // Display the summary
     const summaryElement = document.getElementById('summary');
