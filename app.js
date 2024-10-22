@@ -24,8 +24,9 @@ function loadExpenses() {
         addExpenseToList(expense);
     });
 
-    // Update the summary once expenses are loaded
+    // Update the summary and debt changes once expenses are loaded
     updateSummary();
+    updateDebtChanges();
 }
 
 // Save expenses to local storage
@@ -48,6 +49,7 @@ function addExpenseToList(expense) {
             <option value="Entertainment" ${expense.category === 'Entertainment' ? 'selected' : ''}>Entertainment</option>
             <option value="Miscellaneous" ${expense.category === 'Miscellaneous' ? 'selected' : ''}>Miscellaneous</option>
         </select>
+        <input type="date" class="expense-date" value="${new Date(expense.date).toISOString().split('T')[0]}" disabled>
         <span>(${expense.amountSats.toFixed(0)} sats)</span>
         <button class="edit-btn">Edit</button>
         <button class="save-btn" style="display: none;">Save</button>
@@ -69,6 +71,7 @@ function enterEditMode(listItem) {
     listItem.querySelector('.expense-name').disabled = false;
     listItem.querySelector('.expense-amount').disabled = false;
     listItem.querySelector('.expense-category').disabled = false;
+    listItem.querySelector('.expense-date').disabled = false;
 
     // Hide the edit button and show the save button
     listItem.querySelector('.edit-btn').style.display = 'none';
@@ -82,12 +85,14 @@ function saveEdit(expense, listItem) {
     const updatedName = listItem.querySelector('.expense-name').value;
     const updatedAmountEuros = parseFloat(listItem.querySelector('.expense-amount').value);
     const updatedCategory = listItem.querySelector('.expense-category').value;
+    const updatedDate = listItem.querySelector('.expense-date').value;
 
     // Update expense object
     expense.user = updatedUser;
     expense.name = updatedName;
     expense.amountEuros = updatedAmountEuros;
     expense.category = updatedCategory;
+    expense.date = updatedDate;
 
     // Recalculate the amount in satoshis
     fetchBitcoinPrice().then((bitcoinPriceInEuros) => {
@@ -97,7 +102,7 @@ function saveEdit(expense, listItem) {
             // Update local storage with new values
             const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
             const updatedExpenses = expenses.map(exp => {
-                if (exp.name === expense.name && exp.amountEuros === expense.amountEuros && exp.category === expense.category) {
+                if (exp.date === expense.date && exp.name === expense.name) {
                     return expense;
                 }
                 return exp;
@@ -109,13 +114,15 @@ function saveEdit(expense, listItem) {
             listItem.querySelector('.expense-name').disabled = true;
             listItem.querySelector('.expense-amount').disabled = true;
             listItem.querySelector('.expense-category').disabled = true;
+            listItem.querySelector('.expense-date').disabled = true;
 
             // Hide the save button and show the edit button
             listItem.querySelector('.edit-btn').style.display = 'inline';
             listItem.querySelector('.save-btn').style.display = 'none';
 
-            // Update the summary after saving changes
+            // Update the summary and debt changes after saving changes
             updateSummary();
+            updateDebtChanges();
         } else {
             alert('Could not fetch Bitcoin price. Please try again later.');
         }
@@ -129,11 +136,12 @@ function deleteExpense(expense, listItem) {
 
     // Remove the expense from local storage
     const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-    const updatedExpenses = expenses.filter(exp => !(exp.user === expense.user && exp.name === expense.name && exp.amountEuros === expense.amountEuros && exp.category === expense.category));
+    const updatedExpenses = expenses.filter(exp => !(exp.date === expense.date && exp.name === expense.name));
     saveExpenses(updatedExpenses);
 
-    // Update the summary after deleting an expense
+    // Update the summary and debt changes after deleting an expense
     updateSummary();
+    updateDebtChanges();
 }
 
 // Listen for form submission
@@ -157,13 +165,14 @@ form.addEventListener('submit', async function (e) {
     // Calculate equivalent amount in satoshis
     const expenseAmountSats = (expenseAmountEuros / bitcoinPriceInEuros) * 100000000;
 
-    // Create expense object
+    // Create expense object with a date stamp
     const expense = {
         user: expenseUser,
         name: expenseName,
         amountEuros: expenseAmountEuros,
         amountSats: expenseAmountSats,
-        category: expenseCategory
+        category: expenseCategory,
+        date: new Date().toISOString().split('T')[0] // Date stamp in ISO format (YYYY-MM-DD)
     };
 
     // Add the expense to the list in the DOM
@@ -177,8 +186,9 @@ form.addEventListener('submit', async function (e) {
     // Clear the form inputs
     form.reset();
 
-    // Update the summary after adding an expense
+    // Update the summary and debt changes after adding an expense
     updateSummary();
+    updateDebtChanges();
 });
 
 // Load expenses when the page loads
@@ -215,4 +225,34 @@ async function updateSummary() {
         <p>Nuno owes Claudia: €${nunoOwesClaudiaEuros.toFixed(2)} (${nunoOwesClaudiaSats.toFixed(0)} sats)</p>
         <p>Claudia owes Nuno: €${claudiaOwesNunoEuros.toFixed(2)} (${claudiaOwesNunoSats.toFixed(0)} sats)</p>
     `;
+}
+
+// Function to calculate if debts are getting cheaper or more expensive in satoshis
+async function updateDebtChanges() {
+    const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    const currentBitcoinPriceInEuros = await fetchBitcoinPrice();
+
+    if (currentBitcoinPriceInEuros === null) {
+        console.error('Could not fetch current Bitcoin price.');
+        return;
+    }
+
+    let changesHTML = `<h2>Debt Changes Over Time</h2>`;
+
+    expenses.forEach(expense => {
+        const initialSats = expense.amountSats;
+        const currentSats = (expense.amountEuros / currentBitcoinPriceInEuros) * 100000000;
+
+        const change = currentSats - initialSats;
+        const changeText = change > 0 ? `more expensive` : `cheaper`;
+
+        changesHTML += `
+            <p>${expense.user} paid for ${expense.name} on ${new Date(expense.date).toLocaleDateString()}: 
+            Initial value: ${initialSats.toFixed(0)} sats, Current value: ${currentSats.toFixed(0)} sats 
+            (${Math.abs(change.toFixed(0))} sats ${changeText})</p>
+        `;
+    });
+
+    const changesElement = document.getElementById('debt-changes');
+    changesElement.innerHTML = changesHTML;
 }
