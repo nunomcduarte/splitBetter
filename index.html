@@ -7,11 +7,11 @@
     <title>SplitBetter</title>
 </head>
 <body>
-    <h1>Welcome to SplitBetter</h1>
-    <p>Track your expenses in euros and satoshis!</p>
-    
-    <!-- Expense Form -->
-    <div>
+    <div id="app-container">
+        <h1>Welcome to SplitBetter</h1>
+        <p>Track your expenses in euros and satoshis!</p>
+
+        <!-- Expense Form -->
         <form id="expense-form">
             <label for="expense-name">Expense Name:</label>
             <input type="text" id="expense-name" required>
@@ -21,12 +21,12 @@
             
             <button type="submit">Add Expense</button>
         </form>
-    </div>
 
-    <!-- Expense List -->
-    <div id="expense-list">
-        <h2>Your Expenses</h2>
-        <ul id="expenses"></ul>
+        <!-- Expense List -->
+        <div id="expense-list">
+            <h2>Your Expenses</h2>
+            <ul id="expenses"></ul>
+        </div>
     </div>
 
     <script src="app.js"></script>

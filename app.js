@@ -16,6 +16,28 @@ async function fetchBitcoinPrice() {
     }
 }
 
+// Load expenses from local storage
+function loadExpenses() {
+    const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    expenses.forEach(expense => {
+        addExpenseToList(expense.name, expense.amountEuros, expense.amountSats);
+    });
+}
+
+// Save expenses to local storage
+function saveExpense(expense) {
+    const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    expenses.push(expense);
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+}
+
+// Function to add expense to the list in the DOM
+function addExpenseToList(name, amountEuros, amountSats) {
+    const listItem = document.createElement('li');
+    listItem.textContent = `${name}: €${amountEuros.toFixed(2)} (${amountSats.toFixed(0)} sats)`;
+    expensesList.appendChild(listItem);
+}
+
 // Listen for form submission
 form.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -35,14 +57,15 @@ form.addEventListener('submit', async function (e) {
     // Calculate equivalent amount in satoshis
     const expenseAmountSats = (expenseAmountEuros / bitcoinPriceInEuros) * 100000000;
 
-    // Create a new list item to display the expense
-    const listItem = document.createElement('li');
-    listItem.textContent = `${expenseName}: €${expenseAmountEuros.toFixed(2)} (${expenseAmountSats.toFixed(0)} sats)`;
+    // Add the expense to the list in the DOM
+    addExpenseToList(expenseName, expenseAmountEuros, expenseAmountSats);
 
-    // Add the list item to the expense list
-    expensesList.appendChild(listItem);
+    // Save the expense to local storage
+    saveExpense({ name: expenseName, amountEuros: expenseAmountEuros, amountSats: expenseAmountSats });
 
     // Clear the form inputs
     form.reset();
 });
 
+// Load expenses when the page loads
+loadExpenses();
