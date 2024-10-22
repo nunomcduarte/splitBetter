@@ -13,6 +13,12 @@
 
         <!-- Expense Form -->
         <form id="expense-form">
+            <label for="expense-user">User:</label>
+            <select id="expense-user" required>
+                <option value="Nuno">Nuno</option>
+                <option value="Claudia">Claudia</option>
+            </select>
+            
             <label for="expense-name">Expense Name:</label>
             <input type="text" id="expense-name" required>
             
@@ -29,6 +35,10 @@
             </select>
             
             <button type="submit">Add Expense</button>
+        </form>
+        
+            
+            <button type="submit">Add Expense</button>
         </form>        
         <!-- Expense List -->
         <div id="expense-list">
@@ -40,3 +50,9 @@
     <script src="app.js"></script>
 </body>
 </html>
+
+<div id="summary">
+    <h2>Summary</h2>
+    <p>Nuno owes Claudia: €0.00</p>
+    <p>Claudia owes Nuno: €0.00</p>
+</div>
