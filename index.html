@@ -9,6 +9,26 @@
 <body>
     <h1>Welcome to SplitBetter</h1>
     <p>Track your expenses in euros and satoshis!</p>
+    
+    <!-- Expense Form -->
+    <div>
+        <form id="expense-form">
+            <label for="expense-name">Expense Name:</label>
+            <input type="text" id="expense-name" required>
+            
+            <label for="expense-amount">Amount in Euros (€):</label>
+            <input type="number" id="expense-amount" required>
+            
+            <button type="submit">Add Expense</button>
+        </form>
+    </div>
+
+    <!-- Expense List -->
+    <div id="expense-list">
+        <h2>Your Expenses</h2>
+        <ul id="expenses"></ul>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
